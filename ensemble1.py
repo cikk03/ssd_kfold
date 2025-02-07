@@ -17,12 +17,16 @@ model_paths = [
 
 def load_model(path):
     model = detection.ssd300_vgg16(pretrained=False)
-    num_classes = 5  # 내건 4개+배경1개야
+    num_classes = 5  # 클래스 개수 (배경 포함)
+    
+    # classification 레이어 수정
     in_channels = model.head.classification.out_channels  # ✅ 수정된 부분
     model.head.classification = nn.Conv2d(in_channels, num_classes, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))  # ✅ 수정된 부분
+    
     model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
     model.eval()
     return model
+
 
 
 
