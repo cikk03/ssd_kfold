@@ -69,7 +69,7 @@ def ensemble_boxes_mean(boxes_list, scores_list, labels_list):
     return boxes, scores, labels
 
 # 앙상블 수행 함수
-def ensemble_predictions(image_path, iou_thr=0.4, score_thr=0.5):  # ✅ 점수 임계값 높이고 IoU 낮춤
+def ensemble_predictions(image_path, models, iou_thr=0.4, score_thr=0.5):  # ✅ 점수 임계값 높이고 IoU 낮춤
     image_tensor, original_image = preprocess_image(image_path)
     h, w = original_image.shape[:2]
 
