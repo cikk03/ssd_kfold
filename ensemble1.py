@@ -135,5 +135,5 @@ def streamlit_app():
         # 예측 수행
         ensemble_predictions(image_path)
 
-st.set_option('deprecation.showfileUploaderEncoding', False)
+
 streamlit_app()
