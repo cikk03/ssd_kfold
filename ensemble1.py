@@ -125,16 +125,7 @@ from PIL import Image
 def streamlit_app():
     
 
-    if uploaded_file:
-        image = Image.open(uploaded_file).convert("RGB")
-        image_path = "temp_uploaded_image.png"
-        image.save(image_path)
-        
-        with st.spinner("Loading models..."):
-            models = [load_model(path) for path in model_paths]  # ✅ 업로드 후 모델 로드
-        
-        with st.spinner("Processing image..."):
-            ensemble_predictions(image_path, models)  # ✅ 예측 수행
+
     st.title("SSD Ensemble Object Detection")
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 
@@ -144,7 +135,11 @@ def streamlit_app():
         image.save(image_path)
         
         # 예측 수행
-        ensemble_predictions(image_path)
+        with st.spinner("Loading models..."):
+            models = [load_model(path) for path in model_paths]  # ✅ 업로드 후 모델 로드
+        
+        with st.spinner("Processing image..."):
+            ensemble_predictions(image_path, models)  # ✅ 예측 수행
 
 
 streamlit_app()
