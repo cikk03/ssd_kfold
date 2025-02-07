@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 
 # ✅ 모델 정의
 def get_ssd_model(num_classes):
-    model = ssd300_vgg16(pretrained=True)
+    model = ssd300_vgg16(pretrained=False)
     model.head.classification_head.num_classes = num_classes
     return model
 
@@ -37,7 +37,7 @@ def load_model(path, num_classes=5):
     download_model(path, local_model_path)  # 모델 다운로드
   # num_classes를 실제 클래스 수로 설정
     model = get_ssd_model(num_classes).to(device)
-    model.load_state_dict(torch.load(local_model_path, map_location=device))
+    model.load_state_dict(torch.load(local_model_path, map_location=device), strict=False)
     model.eval()
     return model
 
