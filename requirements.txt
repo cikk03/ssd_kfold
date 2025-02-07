@@ -1,8 +1,7 @@
-matplotlib
-torch
-torchvision
 streamlit
-numpy
-pillow
+torch==2.5.0
+torchvision==0.20.0
 opencv-python-headless
-requests
+Pillow
+numpy
+ensemble-boxes
