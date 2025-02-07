@@ -41,8 +41,7 @@ def load_model(path, num_classes=5):
     model.eval()
     return model
 
-# 5개의 모델 로드
-models = [load_model(path) for path in model_paths]
+
 
 # 이미지 전처리 함수
 def preprocess_image(image_path):
@@ -124,6 +123,19 @@ import streamlit as st
 from PIL import Image
 
 def streamlit_app():
+    st.title("SSD Ensemble Object Detection")
+    uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
+
+    if uploaded_file:
+        image = Image.open(uploaded_file).convert("RGB")
+        image_path = "temp_uploaded_image.png"
+        image.save(image_path)
+        
+        with st.spinner("Loading models..."):
+            models = [load_model(path) for path in model_paths]  # ✅ 업로드 후 모델 로드
+        
+        with st.spinner("Processing image..."):
+            ensemble_predictions(image_path, models)  # ✅ 예측 수행
     st.title("SSD Ensemble Object Detection")
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
 
