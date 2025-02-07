@@ -6,9 +6,8 @@ import cv2
 import numpy as np
 import streamlit as st
 from torchvision.models.detection import ssd300_vgg16
+from torchvision.ops import nms  # nms 함수 import
 from matplotlib import pyplot as plt
-from torchvision.ops import nms
-
 
 # -------------------------
 # 1. 모델 및 추론 관련 함수 정의
@@ -63,12 +62,56 @@ def preprocess_image(file_obj):
     image_tensor = torch.tensor(image_transposed, dtype=torch.float).unsqueeze(0).to(device)
     return image_tensor, original_image
 
-def non_max_suppression(boxes, scores, iou_threshold=0.5):
-    boxes_tensor = torch.tensor(boxes, dtype=torch.float)
-    scores_tensor = torch.tensor(scores, dtype=torch.float)
-    indices = nms(boxes_tensor, scores_tensor, iou_threshold)
-    return indices.numpy()
+# ---------------------------------------------------------------------
+# Python으로 구현한 NMS (fallback implementation)
+def py_nms(boxes, scores, iou_threshold):
+    """
+    boxes: np.array, shape=(N, 4)
+    scores: np.array, shape=(N,)
+    """
+    x1 = boxes[:, 0]
+    y1 = boxes[:, 1]
+    x2 = boxes[:, 2]
+    y2 = boxes[:, 3]
+    
+    areas = (x2 - x1 + 1) * (y2 - y1 + 1)
+    order = scores.argsort()[::-1]
+    
+    keep = []
+    while order.size > 0:
+        i = order[0]
+        keep.append(i)
+        # Compute IoU of the highest score box with the rest
+        xx1 = np.maximum(x1[i], x1[order[1:]])
+        yy1 = np.maximum(y1[i], y1[order[1:]])
+        xx2 = np.minimum(x2[i], x2[order[1:]])
+        yy2 = np.minimum(y2[i], y2[order[1:]])
+        
+        w = np.maximum(0.0, xx2 - xx1 + 1)
+        h = np.maximum(0.0, yy2 - yy1 + 1)
+        inter = w * h
+        
+        iou = inter / (areas[i] + areas[order[1:]] - inter)
+        # Keep boxes with IoU less than threshold
+        inds = np.where(iou <= iou_threshold)[0]
+        order = order[inds + 1]
+    return np.array(keep)
 
+# ---------------------------------------------------------------------
+# Non-Maximum Suppression (NMS) 함수 (Torchvision nms 호출에 실패하면 fallback)
+def non_max_suppression(boxes, scores, iou_threshold=0.5):
+    boxes_np = np.array(boxes, dtype=np.float32)
+    scores_np = np.array(scores, dtype=np.float32)
+    if boxes_np.shape[0] == 0:
+        return np.array([])
+    try:
+        boxes_tensor = torch.tensor(boxes_np, dtype=torch.float)
+        scores_tensor = torch.tensor(scores_np, dtype=torch.float)
+        indices = nms(boxes_tensor, scores_tensor, iou_threshold)
+        return indices.numpy()
+    except Exception as e:
+        st.write("Torchvision NMS op 사용에 실패하여 Python NMS로 대체합니다. Error:", e)
+        return py_nms(boxes_np, scores_np, iou_threshold)
 
 # 바운딩 박스 평균화 함수 (여러 박스들의 좌표, 점수, 레이블의 평균 계산)
 def ensemble_boxes_mean(boxes_list, scores_list, labels_list):
@@ -104,12 +147,12 @@ def ensemble_predictions(file_obj, iou_thr=0.4, score_thr=0.5):
     indices = non_max_suppression(boxes_list, scores_list, iou_threshold=iou_thr)
     st.write(f"After NMS, remaining {len(indices)} boxes")
     
-    # 단순 평균 앙상블 (원래 코드의 ensemble_boxes_mean 방식 사용)
+    # 단순 평균 앙상블 (ensemble_boxes_mean 방식 사용)
     boxes, scores, labels = ensemble_boxes_mean(boxes_list, scores_list, labels_list)
     scores = np.array(scores_list)[indices]
     labels = np.array(labels_list)[indices]
 
-    # 모델 입력은 300x300이므로, 박스 좌표가 [0,1] 범위인 경우 원본 이미지 크기로 복원
+    # 박스 좌표가 [0,1] 범위인 경우, 원본 이미지 크기로 복원
     if len(boxes) > 0 and boxes.max() <= 1.0:
         boxes = np.round(boxes * np.array([w, h, w, h])).astype(int)  # 반올림 적용
         boxes = np.clip(boxes, 0, np.array([w - 1, h - 1, w - 1, h - 1]))  # 이미지 경계 보정
