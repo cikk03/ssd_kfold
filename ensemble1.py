@@ -123,8 +123,7 @@ import streamlit as st
 from PIL import Image
 
 def streamlit_app():
-    st.title("SSD Ensemble Object Detection")
-    uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
+    
 
     if uploaded_file:
         image = Image.open(uploaded_file).convert("RGB")
