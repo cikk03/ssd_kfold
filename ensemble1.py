@@ -7,6 +7,8 @@ import numpy as np
 import streamlit as st
 from torchvision.models.detection import ssd300_vgg16
 from matplotlib import pyplot as plt
+from torchvision.ops import nms
+
 
 # -------------------------
 # 1. 모델 및 추론 관련 함수 정의
@@ -61,12 +63,12 @@ def preprocess_image(file_obj):
     image_tensor = torch.tensor(image_transposed, dtype=torch.float).unsqueeze(0).to(device)
     return image_tensor, original_image
 
-# Non-Maximum Suppression (NMS)
 def non_max_suppression(boxes, scores, iou_threshold=0.5):
     boxes_tensor = torch.tensor(boxes, dtype=torch.float)
     scores_tensor = torch.tensor(scores, dtype=torch.float)
-    indices = torch.ops.torchvision.nms(boxes_tensor, scores_tensor, iou_threshold)
+    indices = nms(boxes_tensor, scores_tensor, iou_threshold)
     return indices.numpy()
+
 
 # 바운딩 박스 평균화 함수 (여러 박스들의 좌표, 점수, 레이블의 평균 계산)
 def ensemble_boxes_mean(boxes_list, scores_list, labels_list):
