@@ -18,11 +18,12 @@ model_paths = [
 def load_model(path):
     model = detection.ssd300_vgg16(pretrained=False)
     num_classes = 5  # 내건 4개+배경1개야
-    in_features = model.head.classification_head.num_classes
-    model.head.classification_head = nn.Linear(in_features, num_classes)
+    in_features = model.head.classification.cls_logits.in_features  # 수정된 부분
+    model.head.classification.cls_logits = nn.Linear(in_features, num_classes)  # 수정된 부분
     model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
     model.eval()
     return model
+
 
 # 5개의 모델 로드
 models = [load_model(path) for path in model_paths]
