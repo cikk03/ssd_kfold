@@ -12,7 +12,7 @@ def get_ssd_model(num_classes):
     """
     SSD300 VGG16 모델을 생성합니다.
     pretrained=False로 설정하여 기본 가중치 다운로드를 막고,
-    커스텀 가중치(여기서는 best_ssd_model.pth)를 로드할 예정입니다.
+    커스텀 가중치(여기서는 best_model_ssd.pth)를 로드할 예정입니다.
     """
     model = ssd300_vgg16(pretrained=False)
     model.head.classification_head.num_classes = num_classes
