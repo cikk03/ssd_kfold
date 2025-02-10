@@ -34,7 +34,7 @@ def load_model(path, num_classes=6):
 # 캐시를 이용해 모델을 한 번만 로드 (Streamlit 1.18 이상)
 @st.cache_resource(show_spinner=False)
 def get_model():
-    return load_model("best_ssd_model.pth", num_classes=6)
+    return load_model("best_model_ssd.pth", num_classes=6)
 
 ####################################
 # 이미지 전처리 함수
