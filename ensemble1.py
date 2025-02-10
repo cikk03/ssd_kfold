@@ -128,14 +128,14 @@ def main():
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
         # ✅ 원본 이미지 출력
-        st.image(image, caption="📷 업로드된 이미지", use_column_width=True)
+        st.image(image, caption="📷 업로드된 이미지", use_container_width=True)
         
         if st.button("🔎 탐지 실행"):
             with st.spinner("모델 실행 중... ⏳"):
                 result_image = ensemble_predictions(image)
                 
                 # ✅ 결과 이미지 표시
-                st.image(result_image, caption="🔍 탐지 결과", use_column_width=True)
+                st.image(result_image, caption="🔍 탐지 결과", use_container_width=True)
                 
                 # ✅ 이미지 다운로드 기능 추가
                 img_rgb = cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR)
