@@ -1,147 +1,154 @@
-import streamlit as st
 import torch
-import numpy as np
-import cv2
 from torchvision.models.detection import ssd300_vgg16
-import matplotlib.pyplot as plt
-from io import BytesIO
+import cv2
+import numpy as np
+from matplotlib import pyplot as plt
 
-# ✅ 모델 정의 함수
+# ✅ 모델 정의
 def get_ssd_model(num_classes):
     model = ssd300_vgg16(pretrained=False)
     model.head.classification_head.num_classes = num_classes
     return model
 
-# ✅ 모델 파일 경로 (로컬에 저장된 모델 파일 경로로 변경)
+# 모델 경로 리스트 (Google Drive 경로로 수정)
 model_paths = [
-    "best_model_ssd_fold1.pth",
-    "best_model_ssd_fold2.pth",
-    "best_model_ssd_fold3.pth",
-    "best_model_ssd_fold4.pth",
-    "best_model_ssd_fold5.pth"
+    '/content/drive/MyDrive/best_model_ssd_fold1.pth',
+    '/content/drive/MyDrive/best_model_ssd_fold2.pth',
+    '/content/drive/MyDrive/best_model_ssd_fold3.pth',
+    '/content/drive/MyDrive/best_model_ssd_fold4.pth',
+    '/content/drive/MyDrive/best_model_ssd_fold5.pth'
 ]
 
-# ✅ GPU 설정 (Streamlit에서는 CPU 사용)
-device = torch.device("cpu")
+# GPU 사용 설정 (여기서는 CPU 사용)
+device = torch.device('cpu')
+print(f"Using device: {device}")
 
-# ✅ 모델 로드 함수
-def load_model(path, num_classes=5):
+# 모델 로드 함수
+def load_model(path, num_classes=6):  # 배경 포함 총 6 클래스
     model = get_ssd_model(num_classes).to(device)
     model.load_state_dict(torch.load(path, map_location=device))
     model.eval()
     return model
 
-# ✅ 모델 로딩 캐싱 (한번만 로드하도록 캐싱)
-@st.cache_resource(show_spinner=False)  # Streamlit 1.18 이상 사용
-def get_models():
-    return [load_model(path) for path in model_paths]
+# 5개의 모델 로드
+models = [load_model(path) for path in model_paths]
 
-# ✅ 이미지 전처리 함수
-def preprocess_image(image):
-    image_resized = cv2.resize(image, (300, 300))
+def preprocess_image(image_path):
+    image = cv2.imread(image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image_resized = cv2.resize(image, (300, 300))  # SSD300 입력 크기에 맞춤
     image_normalized = image_resized / 255.0
     image_transposed = np.transpose(image_normalized, (2, 0, 1))
     return torch.tensor(image_transposed, dtype=torch.float).unsqueeze(0).to(device), image
 
-# ✅ NMS 적용 함수
-def non_max_suppression(boxes, scores, iou_threshold=0.5):
-    indices = torch.ops.torchvision.nms(
-        torch.tensor(boxes, dtype=torch.float),
-        torch.tensor(scores, dtype=torch.float),
-        iou_threshold
-    )
-    return indices.numpy()
-
-# ✅ 바운딩 박스 평균화 함수
-def ensemble_boxes_mean(boxes_list, scores_list, labels_list):
-    if len(boxes_list) == 0:
-        return [], [], []
+def compute_iou(box1, box2):
+    x1 = max(box1[0], box2[0])
+    y1 = max(box1[1], box2[1])
+    x2 = min(box1[2], box2[2])
+    y2 = min(box1[3], box2[3])
     
-    boxes = np.mean(boxes_list, axis=0)
-    scores = np.mean(scores_list, axis=0)
-    labels = np.array(labels_list)
+    inter_area = max(0, x2 - x1 + 1) * max(0, y2 - y1 + 1)
+    box1_area = (box1[2] - box1[0] + 1) * (box1[3] - box1[1] + 1)
+    box2_area = (box2[2] - box2[0] + 1) * (box2[3] - box2[1] + 1)
     
-    return boxes, scores, labels
+    iou = inter_area / float(box1_area + box2_area - inter_area)
+    return iou
 
-def ensemble_predictions(image):
-    image_tensor, original_image = preprocess_image(image)
+# 가중 다수결로 클러스터 내 최종 레이블 결정 함수
+def get_cluster_label(cluster):
+    label_scores = {}
+    for pred in cluster['preds']:
+        label = pred['label']
+        score = pred['score']
+        label_scores[label] = label_scores.get(label, 0) + score
+    best_label = max(label_scores, key=label_scores.get)
+    return best_label
+
+def cluster_predictions(predictions, iou_threshold=0.5):
+    clusters = []
+    predictions_sorted = sorted(predictions, key=lambda x: x['score'], reverse=True)
+    
+    for pred in predictions_sorted:
+        assigned = False
+        for cluster in clusters:
+            iou_val = compute_iou(pred['box'], cluster['box'])
+            if iou_val >= iou_threshold:
+                cluster['preds'].append(pred)
+                boxes = np.array([p['box'] for p in cluster['preds']])
+                cluster['box'] = boxes.mean(axis=0)
+                scores = np.array([p['score'] for p in cluster['preds']])
+                cluster['score'] = scores.mean()
+                cluster['label'] = get_cluster_label(cluster)
+                assigned = True
+                break
+        if not assigned:
+            clusters.append({
+                'preds': [pred],
+                'box': np.array(pred['box']),
+                'score': pred['score'],
+                'label': pred['label']
+            })
+    return clusters
+
+def ensemble_predictions(image_path, iou_thr=0.5, score_thr=0.5):
+    image_tensor, original_image = preprocess_image(image_path)
     h, w = original_image.shape[:2]
 
-    boxes_list, scores_list, labels_list = [], [], []
-    models = get_models()  # 캐싱된 모델 불러오기
-
-    # 각 모델의 예측 결과 수집
+    predictions = []
     for model in models:
         with torch.no_grad():
             outputs = model(image_tensor)[0]
-
-        boxes = outputs["boxes"].cpu().numpy()   # 300×300 기준 좌표
-        scores = outputs["scores"].cpu().numpy()
-        labels = outputs["labels"].cpu().numpy()
-
-        # 각 모델의 결과를 리스트에 추가 (extend 대신 append로 개별 배열을 저장한 후 concatenate)
-        boxes_list.append(boxes)
-        scores_list.append(scores)
-        labels_list.append(labels)
-
-    # 각 모델의 예측 결과를 모두 합치기
-    if len(boxes_list) > 0:
-        all_boxes = np.concatenate(boxes_list, axis=0)
-        all_scores = np.concatenate(scores_list, axis=0)
-        all_labels = np.concatenate(labels_list, axis=0)
-    else:
-        return original_image
-
-    # NMS 적용
-    indices = non_max_suppression(all_boxes.tolist(), all_scores.tolist(), iou_threshold=0.4)
-    final_boxes = all_boxes[indices]
-    final_scores = all_scores[indices]
-    final_labels = all_labels[indices]
-
-    # (이미지가 300x300이므로 좌표 변환은 필요 없음)
-
-    # 결과 시각화
-    for box, score, label in zip(final_boxes, final_scores, final_labels):
-        x1, y1, x2, y2 = map(int, box)
-        # (옵션) 경계를 약간 확장
-        x1, y1, x2, y2 = x1 - 1, y1 - 1, x2 + 1, y2 + 1
-        cv2.rectangle(original_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        # score threshold와 함께 배경(0) 예측 제거
+        valid_idx = (outputs['scores'] > score_thr) & (outputs['labels'] != 0)
+        boxes = outputs['boxes'][valid_idx].cpu().numpy()
+        scores = outputs['scores'][valid_idx].cpu().numpy()
+        labels = outputs['labels'][valid_idx].cpu().numpy()
         
-        label_mapping = {1: "Extruded", 2: "Crack", 3: "Cutting", 4: "Side_stamp"}
-        label_text = label_mapping.get(int(label), "Unknown")
-        cv2.putText(original_image, f"{label_text} {score:.2f}", (x1, y1 - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-
-    return original_image
-
-
-    # NMS 적용 (리스트가 아닌 np.array를 리스트로 변환하여 사용)
-    indices = non_max_suppression(all_boxes.tolist(), all_scores.tolist(), iou_threshold=0.4)
-
-    final_boxes = all_boxes[indices]
-    final_scores = all_scores[indices]
-    final_labels = all_labels[indices]
-
-    # 만약 박스 좌표가 정규화된 값이라면 원본 이미지 크기로 복원
-    if final_boxes.shape[0] > 0 and final_boxes.max() <= 1.0:
-        final_boxes = np.round(final_boxes * [w, h, w, h]).astype(int)
-        final_boxes = np.clip(final_boxes, 0, [w-1, h-1, w-1, h-1])
+        for box, score, label in zip(boxes, scores, labels):
+            predictions.append({
+                'box': box,
+                'score': score,
+                'label': int(label)
+            })
     
-    # 결과 시각화
-    for box, score, label in zip(final_boxes, final_scores, final_labels):
-        x1, y1, x2, y2 = map(int, box)
-        # 경계를 약간 확장해서 표시
-        x1, y1, x2, y2 = x1 - 1, y1 - 1, x2 + 1, y2 + 1
-        cv2.rectangle(original_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        
-        label_mapping = {1: "Extruded", 2: "Crack", 3: "Cutting", 4: "Side_stamp"}
-        label_text = label_mapping.get(int(label), "Unknown")
-        
-        cv2.putText(original_image, f"{label_text} {score:.2f}", (x1, y1 - 10),
+    if len(predictions) > 0:
+        max_box_val = max([np.max(pred['box']) for pred in predictions])
+        if max_box_val <= 1.0:
+            for pred in predictions:
+                pred['box'] = np.array(pred['box']) * np.array([w, h, w, h])
+    
+    clusters = cluster_predictions(predictions, iou_threshold=iou_thr)
+    print(f"최종 검출 객체 수: {len(clusters)}")
+    
+    # 수정된 label mapping (배경은 제외)
+    label_mapping = {
+        1: 'normal',
+        2: 'Extruded',
+        3: 'Crack',
+        4: 'Cutting',
+        5: 'Side_stamp'
+    }
+    
+    for cluster in clusters:
+        box = cluster['box']
+        score = cluster['score']
+        label = cluster['label']
+        box = np.round(box).astype(int)
+        x1, y1, x2, y2 = box
+        cv2.rectangle(original_image, (x1-1, y1-1), (x2+1, y2+1), (0, 255, 0), 2)
+        label_text = label_mapping.get(label, 'Unknown')
+        cv2.putText(original_image, f'{label_text} {score:.2f}', (x1, y1 - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+    
+    plt.figure(figsize=(10, 10))
+    plt.imshow(original_image)
+    plt.axis('off')
+    plt.show()
 
-    return original_image
-
+# ✅ 모델 로딩 캐싱 (한번만 로드하도록 캐싱)
+@st.cache_resource(show_spinner=False)  # Streamlit 1.18 이상 사용
+def get_models():
+    return [load_model(path) for path in model_paths]
 
 # ✅ Streamlit UI
 def main():
