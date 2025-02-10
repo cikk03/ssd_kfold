@@ -31,8 +31,10 @@ def load_model(path, num_classes=5):
     model.eval()
     return model
 
-# ✅ 5개의 모델 로드
-models = [load_model(path) for path in model_paths]
+# ✅ 모델 로딩 캐싱 (한번만 로드하도록 캐싱)
+@st.cache_resource(show_spinner=False)  # Streamlit 1.18 이상 사용
+def get_models():
+    return [load_model(path) for path in model_paths]
 
 # ✅ 이미지 전처리 함수
 def preprocess_image(image):
@@ -67,6 +69,9 @@ def ensemble_predictions(image):
     h, w = original_image.shape[:2]
 
     boxes_list, scores_list, labels_list = [], [], []
+
+    # ✅ 캐싱된 모델 로딩 (매 세션당 최초 1회 실행)
+    models = get_models()
 
     # ✅ 각 모델의 예측 수행
     for model in models:
