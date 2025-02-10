@@ -30,6 +30,11 @@ def load_model(path, num_classes=6):  # 배경 포함 총 6 클래스
     model.eval()
     return model
 
+# ✅ 모델 로딩 캐싱 (한번만 로드하도록 캐싱)
+@st.cache_resource(show_spinner=False)  # Streamlit 1.18 이상 사용
+def get_models():
+    return [load_model(path) for path in model_paths]
+
 # 5개의 모델 로드
 models = [load_model(path) for path in model_paths]
 
@@ -145,10 +150,7 @@ def ensemble_predictions(image_path, iou_thr=0.5, score_thr=0.5):
     plt.axis('off')
     plt.show()
 
-# ✅ 모델 로딩 캐싱 (한번만 로드하도록 캐싱)
-@st.cache_resource(show_spinner=False)  # Streamlit 1.18 이상 사용
-def get_models():
-    return [load_model(path) for path in model_paths]
+
 
 # ✅ Streamlit UI
 def main():
