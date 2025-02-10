@@ -63,17 +63,16 @@ def ensemble_boxes_mean(boxes_list, scores_list, labels_list):
     
     return boxes, scores, labels
 
-# ✅ 앙상블 수행 함수
 def ensemble_predictions(image):
     image_tensor, original_image = preprocess_image(image)
     h, w = original_image.shape[:2]
 
     boxes_list, scores_list, labels_list = [], [], []
 
-    # ✅ 캐싱된 모델 로딩 (매 세션당 최초 1회 실행)
+    # 캐싱된 모델 로딩 (매 세션당 최초 1회 실행)
     models = get_models()
 
-    # ✅ 각 모델의 예측 수행
+    # 각 모델의 예측 수행 (모델별 결과를 별도로 저장)
     for model in models:
         with torch.no_grad():
             outputs = model(image_tensor)[0]
@@ -82,27 +81,34 @@ def ensemble_predictions(image):
         scores = outputs["scores"].cpu().numpy()
         labels = outputs["labels"].cpu().numpy()
 
-        boxes_list.extend(boxes.tolist())
-        scores_list.extend(scores.tolist())
-        labels_list.extend(labels.tolist())
+        boxes_list.append(boxes)    # 리스트에 배열을 추가
+        scores_list.append(scores)
+        labels_list.append(labels)
 
-    # ✅ NMS 적용
-    indices = non_max_suppression(boxes_list, scores_list, iou_threshold=0.4)
-    
-    # ✅ 박스 평균화 적용
-    boxes, scores, labels = ensemble_boxes_mean(boxes_list, scores_list, labels_list)
-    
-    scores = np.array(scores_list)[indices]
-    labels = np.array(labels_list)[indices]
+    # 각 모델의 예측 결과를 모두 합치기
+    if len(boxes_list) > 0:
+        all_boxes = np.concatenate(boxes_list, axis=0)
+        all_scores = np.concatenate(scores_list, axis=0)
+        all_labels = np.concatenate(labels_list, axis=0)
+    else:
+        return original_image
 
-    # ✅ 원본 이미지 크기로 복원
-    if len(boxes) > 0 and boxes.max() <= 1.0:
-        boxes = np.round(boxes * [w, h, w, h]).astype(int)
-        boxes = np.clip(boxes, 0, [w-1, h-1, w-1, h-1])
+    # NMS 적용 (리스트가 아닌 np.array를 리스트로 변환하여 사용)
+    indices = non_max_suppression(all_boxes.tolist(), all_scores.tolist(), iou_threshold=0.4)
+
+    final_boxes = all_boxes[indices]
+    final_scores = all_scores[indices]
+    final_labels = all_labels[indices]
+
+    # 만약 박스 좌표가 정규화된 값이라면 원본 이미지 크기로 복원
+    if final_boxes.shape[0] > 0 and final_boxes.max() <= 1.0:
+        final_boxes = np.round(final_boxes * [w, h, w, h]).astype(int)
+        final_boxes = np.clip(final_boxes, 0, [w-1, h-1, w-1, h-1])
     
-    # ✅ 결과 시각화
-    for box, score, label in zip(np.array(boxes).reshape(-1, 4), scores, labels):
+    # 결과 시각화
+    for box, score, label in zip(final_boxes, final_scores, final_labels):
         x1, y1, x2, y2 = map(int, box)
+        # 경계를 약간 확장해서 표시
         x1, y1, x2, y2 = x1 - 1, y1 - 1, x2 + 1, y2 + 1
         cv2.rectangle(original_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
         
@@ -113,6 +119,7 @@ def ensemble_predictions(image):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
     return original_image
+
 
 # ✅ Streamlit UI
 def main():
