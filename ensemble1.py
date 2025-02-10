@@ -12,11 +12,11 @@ def get_ssd_model(num_classes):
 
 # 모델 경로 리스트 (Google Drive 경로로 수정)
 model_paths = [
-    '/content/drive/MyDrive/best_model_ssd_fold1.pth',
-    '/content/drive/MyDrive/best_model_ssd_fold2.pth',
-    '/content/drive/MyDrive/best_model_ssd_fold3.pth',
-    '/content/drive/MyDrive/best_model_ssd_fold4.pth',
-    '/content/drive/MyDrive/best_model_ssd_fold5.pth'
+    'best_model_ssd_fold1.pth',
+    'best_model_ssd_fold2.pth',
+    'best_model_ssd_fold3.pth',
+    'best_model_ssd_fold4.pth',
+    'best_model_ssd_fold5.pth'
 ]
 
 # GPU 사용 설정 (여기서는 CPU 사용)
