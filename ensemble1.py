@@ -68,20 +68,19 @@ def ensemble_predictions(image):
     h, w = original_image.shape[:2]
 
     boxes_list, scores_list, labels_list = [], [], []
+    models = get_models()  # 캐싱된 모델 불러오기
 
-    # 캐싱된 모델 로딩 (매 세션당 최초 1회 실행)
-    models = get_models()
-
-    # 각 모델의 예측 수행 (모델별 결과를 별도로 저장)
+    # 각 모델의 예측 결과 수집
     for model in models:
         with torch.no_grad():
             outputs = model(image_tensor)[0]
 
-        boxes = outputs["boxes"].cpu().numpy()
+        boxes = outputs["boxes"].cpu().numpy()   # 300×300 기준 좌표
         scores = outputs["scores"].cpu().numpy()
         labels = outputs["labels"].cpu().numpy()
 
-        boxes_list.append(boxes)    # 리스트에 배열을 추가
+        # 각 모델의 결과를 리스트에 추가 (extend 대신 append로 개별 배열을 저장한 후 concatenate)
+        boxes_list.append(boxes)
         scores_list.append(scores)
         labels_list.append(labels)
 
@@ -92,6 +91,29 @@ def ensemble_predictions(image):
         all_labels = np.concatenate(labels_list, axis=0)
     else:
         return original_image
+
+    # NMS 적용
+    indices = non_max_suppression(all_boxes.tolist(), all_scores.tolist(), iou_threshold=0.4)
+    final_boxes = all_boxes[indices]
+    final_scores = all_scores[indices]
+    final_labels = all_labels[indices]
+
+    # (이미지가 300x300이므로 좌표 변환은 필요 없음)
+
+    # 결과 시각화
+    for box, score, label in zip(final_boxes, final_scores, final_labels):
+        x1, y1, x2, y2 = map(int, box)
+        # (옵션) 경계를 약간 확장
+        x1, y1, x2, y2 = x1 - 1, y1 - 1, x2 + 1, y2 + 1
+        cv2.rectangle(original_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        
+        label_mapping = {1: "Extruded", 2: "Crack", 3: "Cutting", 4: "Side_stamp"}
+        label_text = label_mapping.get(int(label), "Unknown")
+        cv2.putText(original_image, f"{label_text} {score:.2f}", (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+
+    return original_image
+
 
     # NMS 적용 (리스트가 아닌 np.array를 리스트로 변환하여 사용)
     indices = non_max_suppression(all_boxes.tolist(), all_scores.tolist(), iou_threshold=0.4)
