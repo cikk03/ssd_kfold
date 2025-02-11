@@ -6,12 +6,11 @@ import SSD         # 수정된 SSD.py
 import ensemble1   # 수정된 ensemble1.py
 
 # ----------------------------
-# 커스텀 CSS를 이용해 배경 이미지 적용
-# (파일 경로를 실제 배경 이미지 파일 경로로 변경하세요)
+# 최신 Streamlit 컨테이너 선택자를 사용해 배경 이미지 적용
 st.markdown(
     """
     <style>
-    .stApp {
+    [data-testid="stAppViewContainer"] {
         background: url("data_science_bg.jpg") no-repeat center center fixed;
         background-size: cover;
     }
