@@ -9,13 +9,14 @@ st.markdown(
     """
     <style>
     body {
-        background: url("https://github.com/cikk03/ssd_kfold/blob/main/data_science_bg.jpg") no-repeat center center fixed;
+        background: url("https://raw.githubusercontent.com/cikk03/ssd_kfold/main/data_science_bg.jpg") no-repeat center center fixed;
         background-size: cover;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
+
 
 # (나머지 코드는 그대로 사용)
 if "uploaded_images" not in st.session_state:
