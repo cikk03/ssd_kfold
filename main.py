@@ -9,7 +9,7 @@ st.markdown(
     """
     <style>
     body {
-        background: url("data_science_bg.jpg") no-repeat center center fixed;
+        background: url("https://github.com/cikk03/ssd_kfold/blob/main/data_science_bg.jpg") no-repeat center center fixed;
         background-size: cover;
     }
     </style>
