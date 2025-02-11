@@ -1,4 +1,5 @@
 import torch
+import torchvision.ops as ops
 from torchvision.models.detection import ssd300_vgg16
 import cv2
 import numpy as np
@@ -35,15 +36,19 @@ def get_models():
     return [load_model(path) for path in model_paths]
 
 ####################################
-# 이미지 전처리 함수 및 클러스터링 관련 함수 (생략: 기존 코드 유지)
+# 이미지 전처리 함수
 ####################################
 def preprocess_image_from_array(image):
     image_resized = cv2.resize(image, (300, 300))
     image_normalized = image_resized / 255.0
     image_transposed = np.transpose(image_normalized, (2, 0, 1))
     tensor = torch.tensor(image_transposed, dtype=torch.float).unsqueeze(0).to(device)
+    # 원본 이미지(전처리 전)를 그대로 반환합니다.
     return tensor, image
 
+####################################
+# IoU 계산 함수
+####################################
 def compute_iou(box1, box2):
     x1 = max(box1[0], box2[0])
     y1 = max(box1[1], box2[1])
@@ -55,6 +60,9 @@ def compute_iou(box1, box2):
     iou = inter_area / float(box1_area + box2_area - inter_area)
     return iou
 
+####################################
+# 클러스터링 관련 함수 (가중 다수결)
+####################################
 def get_cluster_label(cluster):
     label_scores = {}
     for pred in cluster['preds']:
@@ -64,7 +72,7 @@ def get_cluster_label(cluster):
     best_label = max(label_scores, key=label_scores.get)
     return best_label
 
-def cluster_predictions(predictions, iou_threshold=0.5):
+def cluster_predictions(predictions, iou_threshold=0.6):
     clusters = []
     predictions_sorted = sorted(predictions, key=lambda x: x['score'], reverse=True)
     
@@ -90,30 +98,46 @@ def cluster_predictions(predictions, iou_threshold=0.5):
             })
     return clusters
 
-def ensemble_predictions(image, models, iou_thr=0.5, score_thr=0.5):
-    image_tensor, original_image = preprocess_image_from_array(image)
+####################################
+# 앙상블 예측 함수 (각 모델별 NMS 적용 후 클러스터링, 원본 이미지 복사 사용)
+####################################
+def ensemble_predictions(image, models, iou_thr=0.6, score_thr=0.5, nms_thr=0.45):
+    image_tensor, orig = preprocess_image_from_array(image)
+    # 원본 이미지 복사 (누적 그림 방지)
+    original_image = orig.copy()
     h, w = original_image.shape[:2]
     predictions = []
+    
     for model in models:
         with torch.no_grad():
             outputs = model(image_tensor)[0]
         valid_idx = (outputs['scores'] > score_thr) & (outputs['labels'] != 0)
-        boxes = outputs['boxes'][valid_idx].cpu().numpy()
-        scores = outputs['scores'][valid_idx].cpu().numpy()
-        labels = outputs['labels'][valid_idx].cpu().numpy()
+        boxes = outputs['boxes'][valid_idx]
+        scores = outputs['scores'][valid_idx]
+        labels = outputs['labels'][valid_idx]
+        
+        if boxes.numel() > 0 and boxes.max() <= 1.0:
+            scale_tensor = torch.tensor([w, h, w, h], device=boxes.device)
+            boxes = boxes * scale_tensor
+        boxes = boxes.round()
+        
+        # 각 모델별 NMS 적용
+        keep_idx = ops.nms(boxes.float(), scores, nms_thr)
+        boxes = boxes[keep_idx].cpu().numpy()
+        scores = scores[keep_idx].cpu().numpy()
+        labels = labels[keep_idx].cpu().numpy()
+        
         for box, score, label in zip(boxes, scores, labels):
             predictions.append({
                 'box': box,
                 'score': score,
                 'label': int(label)
             })
-    if len(predictions) > 0:
-        max_box_val = max([np.max(pred['box']) for pred in predictions])
-        if max_box_val <= 1.0:
-            for pred in predictions:
-                pred['box'] = np.array(pred['box']) * np.array([w, h, w, h])
+    
+    # 여러 모델의 예측을 클러스터링하여 중복 제거
     clusters = cluster_predictions(predictions, iou_threshold=iou_thr)
     st.write(f"최종 검출 객체 수: {len(clusters)}")
+    
     label_mapping = {
         1: 'normal',
         2: 'Extruded',
@@ -121,6 +145,7 @@ def ensemble_predictions(image, models, iou_thr=0.5, score_thr=0.5):
         4: 'Cutting',
         5: 'Side_stamp'
     }
+    
     for cluster in clusters:
         box = cluster['box']
         score = cluster['score']
@@ -131,6 +156,7 @@ def ensemble_predictions(image, models, iou_thr=0.5, score_thr=0.5):
         label_text = label_mapping.get(label, 'Unknown')
         cv2.putText(original_image, f'{label_text} {score:.2f}', (x1, y1 - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+    
     return original_image
 
 ####################################
@@ -152,7 +178,7 @@ def main(image=None):
         if st.button("🔎 탐지 실행"):
             with st.spinner("모델 실행 중... ⏳"):
                 models = get_models()
-                result_image = ensemble_predictions(image, models, iou_thr=0.5, score_thr=0.5)
+                result_image = ensemble_predictions(image, models, iou_thr=0.6, score_thr=0.5, nms_thr=0.45)
             st.image(result_image, caption="🔍 탐지 결과", use_container_width=True)
             img_rgb = cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR)
             is_success, buffer = cv2.imencode(".jpg", img_rgb)
