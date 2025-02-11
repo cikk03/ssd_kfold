@@ -31,7 +31,7 @@ def main():
             list(st.session_state.uploaded_images.keys())
         )
         image = st.session_state.uploaded_images[selected_image_name]
-        st.image(image, caption=selected_image_name, use_column_width=True)
+        st.image(image, caption=selected_image_name, use_container_width=True)
     else:
         st.sidebar.info("아직 저장된 이미지가 없습니다.")
         image = None
