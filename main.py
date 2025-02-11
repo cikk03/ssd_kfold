@@ -2,23 +2,22 @@ import streamlit as st
 import cv2
 import numpy as np
 from io import BytesIO
-import SSD
-import ensemble1
+import SSD         # 수정된 SSD.py
+import ensemble1   # 수정된 ensemble1.py
 
 st.markdown(
     """
     <style>
-    body {
-        background: url("https://raw.githubusercontent.com/cikk03/ssd_kfold/main/data_science_bg.jpg") no-repeat center center fixed;
-        background-size: cover;
+    html, body, [data-testid="stAppViewContainer"] {
+        background: url("https://raw.githubusercontent.com/cikk03/ssd_kfold/main/data_science_bg.jpg") no-repeat center center fixed !important;
+        background-size: cover !important;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-
-# (나머지 코드는 그대로 사용)
+# 나머지 코드는 그대로...
 if "uploaded_images" not in st.session_state:
     st.session_state.uploaded_images = {}
 
