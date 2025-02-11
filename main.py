@@ -10,16 +10,14 @@ st.markdown(
     <style>
     html, body, [data-testid="stAppViewContainer"] {
         background: url("https://raw.githubusercontent.com/cikk03/ssd_kfold/main/data_science_bg.jpg") no-repeat center center fixed !important;
-        background-size: 130% 100% !important;
+        background-size: contain !important;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
 
-
-
-# 나머지 코드는 그대로...
+# 세션 상태 초기화 (이미지 저장용)
 if "uploaded_images" not in st.session_state:
     st.session_state.uploaded_images = {}
 
