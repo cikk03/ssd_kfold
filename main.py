@@ -1,6 +1,6 @@
 import streamlit as st
 import SSD       # SSD.py 파일
-import ensemble  # ensemble.py 파일
+import ensemble1  # ensemble.py 파일
 
 def main():
     st.sidebar.title("실행 옵션")
@@ -9,7 +9,7 @@ def main():
     if choice == "SSD 분석":
         SSD.ssd_run()
     elif choice == "Ensemble 실행":
-        ensemble.ensemble_run()
+        ensemble.ensemble1_run()
 
 if __name__ == "__main__":
     main()
