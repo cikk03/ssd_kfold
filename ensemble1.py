@@ -179,7 +179,7 @@ def main(image=None):
             with st.spinner("모델 실행 중... ⏳"):
                 models = get_models()
                 result_image = ensemble_predictions(image, models, iou_thr=0.6, score_thr=0.5, nms_thr=0.45)
-            st.image(result_image, caption="🔍 탐지 결과", use_container_width=True)
+            st.image(result_image, caption="🔍 탐지 결과", width=550)
             img_rgb = cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR)
             is_success, buffer = cv2.imencode(".jpg", img_rgb)
             if is_success:
