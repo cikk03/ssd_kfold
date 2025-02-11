@@ -98,24 +98,30 @@ def detect_objects(image, model, score_thr=0.5):
 ####################################
 # Streamlit UI
 ####################################
-def main():
+def main(image=None):
     st.title("🔍 SSD Object Detection")
     st.write("💡 best_ssd_model.pth 가중치를 사용한 객체 탐지 앱")
-
-    uploaded_file = st.file_uploader("이미지를 업로드하세요", type=["png", "jpg", "jpeg"])
-    if uploaded_file is not None:
-        # 업로드된 파일을 넘파이 배열로 디코딩
-        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-        image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        st.image(image, caption="업로드된 이미지", use_container_width=True)
-
+    
+    # main.py에서 이미지가 전달된 경우와 전달되지 않은 경우를 구분합니다.
+    if image is None:
+        # 이미지가 전달되지 않으면 기존처럼 업로드하도록 합니다.
+        uploaded_file = st.file_uploader("이미지를 업로드하세요", type=["png", "jpg", "jpeg"])
+        if uploaded_file is not None:
+            file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+            image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            st.image(image, caption="업로드된 이미지", use_container_width=True)
+    else:
+        st.image(image, caption="불러온 이미지", use_container_width=True)
+    
+    # 이미지가 있을 경우에만 처리하도록 합니다.
+    if image is not None:
         if st.button("🔎 탐지 실행"):
             with st.spinner("모델 실행 중..."):
                 model = get_model()
                 result_image = detect_objects(image, model, score_thr=0.5)
             st.image(result_image, caption="탐지 결과", use_container_width=True)
-
+            
             # 결과 이미지 다운로드 기능
             result_bgr = cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR)
             is_success, buffer = cv2.imencode(".jpg", result_bgr)
@@ -129,3 +135,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
