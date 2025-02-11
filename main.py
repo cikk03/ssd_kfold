@@ -5,7 +5,23 @@ from io import BytesIO
 import SSD         # 수정된 SSD.py
 import ensemble1   # 수정된 ensemble1.py
 
-# 세션 상태에 이미지 저장용 딕셔너리 초기화
+# ----------------------------
+# 커스텀 CSS를 이용해 배경 이미지 적용
+# (파일 경로를 실제 배경 이미지 파일 경로로 변경하세요)
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background: url("data_science_bg.jpg") no-repeat center center fixed;
+        background-size: cover;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+# ----------------------------
+
+# 세션 상태 초기화 (이미지 저장용)
 if "uploaded_images" not in st.session_state:
     st.session_state.uploaded_images = {}
 
@@ -26,13 +42,13 @@ def main():
     # 사이드바 하단: 이미지 불러오기 섹션
     st.sidebar.header("✨ 이미지 불러오기 ✨")
     
-    # 이미지 업로드 위젯 (파일 업로더를 사이드바에 배치)
+    # 파일 업로더 (사이드바에 배치)
     uploaded_file = st.sidebar.file_uploader("이미지를 업로드하세요", type=["png", "jpg", "jpeg"])
     if uploaded_file is not None:
         save_uploaded_image(uploaded_file)
         st.sidebar.success(f"'{uploaded_file.name}' 파일이 저장되었습니다.")
     
-    # 저장된 이미지가 있으면 선택할 수 있도록 함 (미리보기 없이 선택)
+    # 저장된 이미지가 있으면 선택할 수 있도록 함 (미리보기 없이)
     if st.session_state.uploaded_images:
         selected_image_name = st.sidebar.selectbox(
             "불러올 이미지를 선택하세요",
@@ -42,7 +58,7 @@ def main():
     else:
         image = None
 
-    # 선택한 이미지가 있으면 메인 영역에서 해당 모듈 실행 (탐지 실행 버튼은 각 모듈 내에 있음)
+    # 선택한 기능에 따라 해당 모듈에 이미지를 전달
     if image is not None:
         if choice == "SSD 분석":
             SSD.main(image)
