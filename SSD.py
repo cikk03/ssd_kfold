@@ -35,13 +35,16 @@ def preprocess_image_from_array(image):
     image_normalized = image_resized / 255.0
     image_transposed = np.transpose(image_normalized, (2, 0, 1))
     tensor = torch.tensor(image_transposed, dtype=torch.float).unsqueeze(0).to(device)
+    # 원본 이미지(전처리 전)를 그대로 반환합니다.
     return tensor, image
 
 ####################################
-# 객체 탐지 및 결과 시각화 함수 (NMS 적용)
+# 객체 탐지 및 결과 시각화 함수 (NMS 적용 및 원본 이미지 복사 사용)
 ####################################
 def detect_objects(image, model, score_thr=0.5, nms_thr=0.45):
-    image_tensor, original_image = preprocess_image_from_array(image)
+    image_tensor, orig = preprocess_image_from_array(image)
+    # 원본 이미지를 복사하여 새롭게 작업 (누적 그림 방지)
+    original_image = orig.copy()
     h, w = original_image.shape[:2]
 
     with torch.no_grad():
