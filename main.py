@@ -9,7 +9,7 @@ def main():
     if choice == "SSD 분석":
         SSD.ssd_run()
     elif choice == "Ensemble 실행":
-        ensemble.ensemble1_run()
+        ensemble1.ensemble_run()
 
 if __name__ == "__main__":
     main()
