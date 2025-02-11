@@ -5,7 +5,7 @@ from io import BytesIO
 import SSD         # 수정된 SSD.py
 import ensemble1   # 수정된 ensemble1.py
 
-# 세션 상태 초기화 (이미지 저장)
+# 세션 상태에 이미지 저장용 딕셔너리 초기화
 if "uploaded_images" not in st.session_state:
     st.session_state.uploaded_images = {}
 
@@ -16,17 +16,23 @@ def save_uploaded_image(uploaded_file):
     st.session_state.uploaded_images[uploaded_file.name] = image
 
 def main():
-    # 제목에 이모티콘을 추가하여 예쁘게 변경
-    st.sidebar.title("✨ 모델 선택 및 이미지 불러오기 ✨")
+    # 사이드바 상단: 모델 선택 섹션
+    st.sidebar.header("✨ 모델 선택 ✨")
     choice = st.sidebar.radio("실행할 기능 선택", ("SSD 분석", "Ensemble 실행"))
     
-    # 메인 영역에서 이미지 업로드
-    uploaded_file = st.file_uploader("이미지를 업로드하세요", type=["png", "jpg", "jpeg"])
+    # 섹션 구분선
+    st.sidebar.markdown("---")
+    
+    # 사이드바 하단: 이미지 불러오기 섹션
+    st.sidebar.header("✨ 이미지 불러오기 ✨")
+    
+    # 이미지 업로드 위젯 (파일 업로더를 사이드바에 배치)
+    uploaded_file = st.sidebar.file_uploader("이미지를 업로드하세요", type=["png", "jpg", "jpeg"])
     if uploaded_file is not None:
         save_uploaded_image(uploaded_file)
-        st.success(f"'{uploaded_file.name}' 파일이 저장되었습니다.")
+        st.sidebar.success(f"'{uploaded_file.name}' 파일이 저장되었습니다.")
     
-    # 저장된 이미지 목록을 사이드바에서 선택 (미리보기 없이)
+    # 저장된 이미지가 있으면 선택할 수 있도록 함 (미리보기 없이 선택)
     if st.session_state.uploaded_images:
         selected_image_name = st.sidebar.selectbox(
             "불러올 이미지를 선택하세요",
@@ -36,7 +42,7 @@ def main():
     else:
         image = None
 
-    # 선택한 기능에 따라 해당 모듈에 이미지를 전달
+    # 선택한 이미지가 있으면 메인 영역에서 해당 모듈 실행 (탐지 실행 버튼은 각 모듈 내에 있음)
     if image is not None:
         if choice == "SSD 분석":
             SSD.main(image)
