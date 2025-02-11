@@ -5,17 +5,19 @@ from io import BytesIO
 import SSD         # 수정된 SSD.py
 import ensemble1   # 수정된 ensemble1.py
 
+
 st.markdown(
     """
     <style>
     html, body, [data-testid="stAppViewContainer"] {
-        background: url("https://raw.githubusercontent.com/cikk03/ssd_kfold/main/data_science_bg.jpg") no-repeat center center fixed !important;
-        background-size: contain !important;
+        background: url("https://raw.githubusercontent.com/cikk03/ssd_kfold/main/data_science_bg.jpg") no-repeat center center fixed;
+        background-size: cover !important;
     }
     </style>
     """,
     unsafe_allow_html=True
 )
+
 
 # 세션 상태 초기화 (이미지 저장용)
 if "uploaded_images" not in st.session_state:
