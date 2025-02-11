@@ -2,15 +2,13 @@ import streamlit as st
 import cv2
 import numpy as np
 from io import BytesIO
-import SSD         # 수정된 SSD.py
-import ensemble1   # 수정된 ensemble1.py
+import SSD
+import ensemble1
 
-# ----------------------------
-# 변경된 CSS: #root 선택자를 사용하여 배경 이미지 적용
 st.markdown(
     """
     <style>
-    #root {
+    body {
         background: url("data_science_bg.jpg") no-repeat center center fixed;
         background-size: cover;
     }
@@ -18,9 +16,8 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-# ----------------------------
 
-# 나머지 코드...
+# (나머지 코드는 그대로 사용)
 if "uploaded_images" not in st.session_state:
     st.session_state.uploaded_images = {}
 
