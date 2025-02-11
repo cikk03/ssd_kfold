@@ -7,9 +7,9 @@ def main():
     choice = st.sidebar.radio("실행할 기능 선택", ("SSD 분석", "Ensemble 실행"))
     
     if choice == "SSD 분석":
-        SSD.ssd_run()
+        SSD.main()
     elif choice == "Ensemble 실행":
-        ensemble1.ensemble_run()
+        ensemble1.main()
 
 if __name__ == "__main__":
     main()
