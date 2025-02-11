@@ -165,30 +165,28 @@ def ensemble_predictions(image, models, iou_thr=0.5, score_thr=0.5):
 ####################################
 # Streamlit UI
 ####################################
-def main():
+def main(image=None):
     st.title("🔍 SSD Object Detection Ensemble")
     st.write("💡 SSD300 VGG16 모델 앙상블을 사용한 객체 탐지")
-
-    uploaded_file = st.file_uploader("이미지를 업로드하세요", type=["png", "jpg", "jpeg"])
-
-    if uploaded_file is not None:
-        # 업로드된 이미지를 넘파이 배열로 디코딩
-        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-        image = cv2.imdecode(file_bytes, 1)
-        # OpenCV는 기본 BGR이므로 RGB로 변환
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        
-        st.image(image, caption="📷 업로드된 이미지", use_container_width=True)
-        
+    
+    if image is None:
+        uploaded_file = st.file_uploader("이미지를 업로드하세요", type=["png", "jpg", "jpeg"])
+        if uploaded_file is not None:
+            file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+            image = cv2.imdecode(file_bytes, 1)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            st.image(image, caption="📷 업로드된 이미지", use_container_width=True)
+    else:
+        st.image(image, caption="불러온 이미지", use_container_width=True)
+    
+    if image is not None:
         if st.button("🔎 탐지 실행"):
             with st.spinner("모델 실행 중... ⏳"):
-                models = get_models()  # 캐싱된 모델 불러오기
+                models = get_models()
                 result_image = ensemble_predictions(image, models, iou_thr=0.5, score_thr=0.5)
-            
             st.image(result_image, caption="🔍 탐지 결과", use_container_width=True)
             
             # 이미지 다운로드 기능
-            # OpenCV는 BGR 형식이므로 다시 RGB로 변환
             img_rgb = cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR)
             is_success, buffer = cv2.imencode(".jpg", img_rgb)
             if is_success:
@@ -201,3 +199,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
