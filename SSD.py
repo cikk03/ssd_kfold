@@ -1,4 +1,5 @@
 import torch
+import torchvision.ops as ops
 from torchvision.models.detection import ssd300_vgg16
 import cv2
 import numpy as np
@@ -6,7 +7,7 @@ import streamlit as st
 from io import BytesIO
 
 ####################################
-# 모델 정의 및 로딩 함수 (기존 코드 그대로)
+# 모델 정의 및 로딩 함수
 ####################################
 def get_ssd_model(num_classes):
     model = ssd300_vgg16(pretrained=False)
@@ -27,7 +28,7 @@ def get_model():
     return load_model("best_model_ssd.pth", num_classes=6)
 
 ####################################
-# 이미지 전처리 및 탐지 함수 (기존 코드 그대로)
+# 이미지 전처리 함수
 ####################################
 def preprocess_image_from_array(image):
     image_resized = cv2.resize(image, (300, 300))
@@ -36,20 +37,33 @@ def preprocess_image_from_array(image):
     tensor = torch.tensor(image_transposed, dtype=torch.float).unsqueeze(0).to(device)
     return tensor, image
 
-def detect_objects(image, model, score_thr=0.5):
+####################################
+# 객체 탐지 및 결과 시각화 함수 (NMS 적용)
+####################################
+def detect_objects(image, model, score_thr=0.5, nms_thr=0.45):
     image_tensor, original_image = preprocess_image_from_array(image)
     h, w = original_image.shape[:2]
+
     with torch.no_grad():
         outputs = model(image_tensor)[0]
 
+    # 유효한 예측만 선택 (score threshold 및 배경 제외)
     valid_idx = (outputs['scores'] > score_thr) & (outputs['labels'] != 0)
-    boxes = outputs['boxes'][valid_idx].cpu().numpy()
-    scores = outputs['scores'][valid_idx].cpu().numpy()
-    labels = outputs['labels'][valid_idx].cpu().numpy()
+    boxes = outputs['boxes'][valid_idx]
+    scores = outputs['scores'][valid_idx]
+    labels = outputs['labels'][valid_idx]
 
-    if boxes.size > 0 and boxes.max() <= 1.0:
-        boxes = boxes * np.array([w, h, w, h])
-    boxes = np.round(boxes).astype(int)
+    # 박스 좌표가 [0,1] 범위라면 원본 크기로 변환
+    if boxes.numel() > 0 and boxes.max() <= 1.0:
+        scale_tensor = torch.tensor([w, h, w, h], device=boxes.device)
+        boxes = boxes * scale_tensor
+    boxes = boxes.round()
+
+    # NMS 적용
+    keep_idx = ops.nms(boxes.float(), scores, nms_thr)
+    boxes = boxes[keep_idx].cpu().numpy()
+    scores = scores[keep_idx].cpu().numpy()
+    labels = labels[keep_idx].cpu().numpy()
 
     label_mapping = {
         1: 'normal',
@@ -60,7 +74,7 @@ def detect_objects(image, model, score_thr=0.5):
     }
 
     for box, score, label in zip(boxes, scores, labels):
-        x1, y1, x2, y2 = box
+        x1, y1, x2, y2 = box.astype(int)
         cv2.rectangle(original_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
         label_text = label_mapping.get(int(label), 'Unknown')
         cv2.putText(original_image, f"{label_text} {score:.2f}", (x1, y1 - 10),
@@ -82,18 +96,15 @@ def main(image=None):
             file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
             image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            # 업로드 후 바로 이미지는 출력하지 않고, 저장 메시지만 출력
             st.success(f"'{uploaded_file.name}' 파일이 저장되었습니다.")
     
-    # 전달받은 이미지가 있다면 (이미 미리 업로드되어 저장된 경우)
+    # 전달된 이미지가 있으면 "탐지 실행" 버튼을 통해 결과만 보여줌
     if image is not None:
-        # 탐지 실행 버튼을 눌렀을 때만 결과 이미지를 보여줌
         if st.button("🔎 탐지 실행"):
             with st.spinner("모델 실행 중..."):
                 model = get_model()
-                result_image = detect_objects(image, model, score_thr=0.5)
+                result_image = detect_objects(image, model, score_thr=0.5, nms_thr=0.45)
             st.image(result_image, caption="탐지 결과", use_container_width=True)
-            # 결과 이미지 다운로드 버튼 (필요시)
             result_bgr = cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR)
             is_success, buffer = cv2.imencode(".jpg", result_bgr)
             if is_success:
