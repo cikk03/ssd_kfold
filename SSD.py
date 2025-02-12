@@ -108,7 +108,7 @@ def main(image=None):
             with st.spinner("모델 실행 중..."):
                 model = get_model()
                 result_image, detection_results = detect_objects(image, model, score_thr=0.5, nms_thr=0.45)
-            st.image(result_image, caption="탐지 결과", width=550)
+            st.image(result_image, caption="탐지 결과", width=450)
             
             # 결과 이미지 다운로드 버튼 (JPG)
             result_bgr = cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR)
