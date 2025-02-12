@@ -135,12 +135,21 @@ def ensemble_predictions(image, models, iou_thr=0.6, score_thr=0.5, nms_thr=0.45
     clusters = cluster_predictions(predictions, iou_threshold=iou_thr)
     st.write(f"최종 검출 객체 수: {len(clusters)}")
     
+    # 라벨 매핑
     label_mapping = {
         1: 'normal',
         2: 'Extruded',
         3: 'Crack',
         4: 'Cutting',
         5: 'Side_stamp'
+    }
+    # 라벨별 색상 매핑 (RGB 순서)
+    color_mapping = {
+        "normal": (0, 255, 0),
+        "extruded": (255, 0, 0),
+        "crack": (255, 255, 0),
+        "cutting": (0, 0, 255),
+        "side_stamp": (255, 0, 255)
     }
     
     detection_results = []
@@ -150,10 +159,24 @@ def ensemble_predictions(image, models, iou_thr=0.6, score_thr=0.5, nms_thr=0.45
         label = cluster['label']
         box = np.round(box).astype(int)
         x1, y1, x2, y2 = box
-        cv2.rectangle(original_image, (x1-1, y1-1), (x2+1, y2+1), (0, 255, 0), 2)
         label_text = label_mapping.get(label, 'Unknown')
-        cv2.putText(original_image, f'{label_text} {score:.2f}', (x1, y1 - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        color = color_mapping.get(label_text.lower(), (0, 255, 0))
+        # 바운딩 박스 그리기 (약간의 여백 적용)
+        cv2.rectangle(original_image, (x1-1, y1-1), (x2+1, y2+1), color, 2)
+        
+        text = f"{label_text} {score:.2f}"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.5
+        thickness = 1
+        (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
+        if y1 - text_height - baseline >= 0:
+            text_top = y1 - text_height - baseline
+            text_bottom = y1
+        else:
+            text_top = y1
+            text_bottom = y1 + text_height + baseline
+        cv2.rectangle(original_image, (x1, text_top), (x1 + text_width, text_bottom), color, thickness=-1)
+        cv2.putText(original_image, text, (x1, text_bottom - baseline), font, font_scale, (255,255,255), thickness, cv2.LINE_AA)
         
         detection_results.append({
             "label": label_text,
@@ -168,7 +191,7 @@ def ensemble_predictions(image, models, iou_thr=0.6, score_thr=0.5, nms_thr=0.45
 ####################################
 def main(image=None):
     st.title("🔍 SSD Object Detection Ensemble")
-    # 기존 설명 문구 삭제
+    # (기존 설명 문구 삭제)
 
     if image is None:
         uploaded_file = st.file_uploader("이미지를 업로드하세요", type=["png", "jpg", "jpeg"])
@@ -192,14 +215,15 @@ def main(image=None):
                 x1, y1, x2, y2 = box
                 return (x1 <= tol * w and y1 <= tol * h and x2 >= (1 - tol) * w and y2 >= (1 - tol) * h)
             
-            # 검출 결과가 있을 경우에만 불량 여부 메시지 출력
             if detection_results:
                 other_boxes = [d for d in detection_results if not is_full_box(d["box"])]
                 if len(other_boxes) > 0:
                     st.markdown("**불량이 검출되었습니다! 🚨**")
                 else:
                     st.markdown("**불량이 검출되지 않았습니다! 🎉**")
-            
+            else:
+                st.markdown("**탐지 결과가 없습니다!**")
+                
             st.image(result_image, caption="🔍 탐지 결과", width=550)
             
             # 결과 이미지 다운로드 버튼 (JPG)
