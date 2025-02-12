@@ -93,7 +93,7 @@ def detect_objects(image, model, score_thr=0.5, nms_thr=0.45):
 ####################################
 def main(image=None):
     st.title("🔍 SSD Object Detection")
-    # 기존 설명 문구 삭제 (💡 best_ssd_model.pth 가중치를 사용한 객체 탐지 앱)
+    # 기존 설명 문구 삭제
 
     if image is None:
         uploaded_file = st.file_uploader("이미지를 업로드하세요", type=["png", "jpg", "jpeg"])
@@ -108,12 +108,23 @@ def main(image=None):
             with st.spinner("모델 실행 중..."):
                 model = get_model()
                 result_image, detection_results = detect_objects(image, model, score_thr=0.5, nms_thr=0.45)
-            # 탐지 결과에 따른 메시지 출력 (버튼 바로 아래)
-            if len(detection_results) > 0:
-                st.markdown("**불량이 검출되었습니다! 🚨**")
-            else:
-                st.markdown("**불량이 검출되지 않았습니다! 🎉**")
-                
+            
+            # 원본 이미지 크기 정보 및 5% 허용 오차
+            h, w = image.shape[:2]
+            tol = 0.05  # 5% tolerance
+
+            def is_full_box(box):
+                x1, y1, x2, y2 = box
+                return (x1 <= tol * w and y1 <= tol * h and x2 >= (1 - tol) * w and y2 >= (1 - tol) * h)
+            
+            # 검출 결과가 있을 경우에만 불량 여부 메시지 출력
+            if detection_results:
+                other_boxes = [d for d in detection_results if not is_full_box(d["box"])]
+                if len(other_boxes) > 0:
+                    st.markdown("**불량이 검출되었습니다! 🚨**")
+                else:
+                    st.markdown("**불량이 검출되지 않았습니다! 🎉**")
+            
             st.image(result_image, caption="탐지 결과", width=550)
             
             # 결과 이미지 다운로드 버튼 (JPG)
