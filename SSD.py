@@ -64,6 +64,7 @@ def detect_objects(image, model, score_thr=0.5, nms_thr=0.45):
     scores = scores[keep_idx].cpu().numpy()
     labels = labels[keep_idx].cpu().numpy()
 
+    # 라벨 텍스트 매핑
     label_mapping = {
         1: 'normal',
         2: 'Extruded',
@@ -71,14 +72,41 @@ def detect_objects(image, model, score_thr=0.5, nms_thr=0.45):
         4: 'Cutting',
         5: 'Side_stamp'
     }
+    # 라벨별 색상 매핑 (RGB 순서)
+    color_mapping = {
+        "normal": (0, 255, 0),
+        "extruded": (255, 0, 0),
+        "crack": (255, 255, 0),
+        "cutting": (0, 0, 255),
+        "side_stamp": (255, 0, 255)
+    }
     
     detection_results = []
     for box, score, label in zip(boxes, scores, labels):
         x1, y1, x2, y2 = box.astype(int)
-        cv2.rectangle(original_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
         label_text = label_mapping.get(int(label), 'Unknown')
-        cv2.putText(original_image, f"{label_text} {score:.2f}", (x1, y1 - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        # 라벨명(소문자)로 색상 지정
+        color = color_mapping.get(label_text.lower(), (0, 255, 0))
+        # 바운딩 박스 그리기
+        cv2.rectangle(original_image, (x1, y1), (x2, y2), color, 2)
+        
+        # 텍스트와 배경 그리기
+        text = f"{label_text} {score:.2f}"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.5
+        thickness = 1
+        (text_width, text_height), baseline = cv2.getTextSize(text, font, font_scale, thickness)
+        # 텍스트를 박스 위에 배치 (여유가 없으면 박스 아래쪽에)
+        if y1 - text_height - baseline >= 0:
+            text_top = y1 - text_height - baseline
+            text_bottom = y1
+        else:
+            text_top = y1
+            text_bottom = y1 + text_height + baseline
+        # 텍스트 배경 사각형 (채움)
+        cv2.rectangle(original_image, (x1, text_top), (x1 + text_width, text_bottom), color, thickness=-1)
+        # 흰색 텍스트 출력
+        cv2.putText(original_image, text, (x1, text_bottom - baseline), font, font_scale, (255,255,255), thickness, cv2.LINE_AA)
         
         detection_results.append({
             "label": label_text,
@@ -93,7 +121,7 @@ def detect_objects(image, model, score_thr=0.5, nms_thr=0.45):
 ####################################
 def main(image=None):
     st.title("🔍 SSD Object Detection")
-    # 기존 설명 문구 삭제
+    # (기존 설명 문구는 삭제)
 
     if image is None:
         uploaded_file = st.file_uploader("이미지를 업로드하세요", type=["png", "jpg", "jpeg"])
@@ -109,23 +137,24 @@ def main(image=None):
                 model = get_model()
                 result_image, detection_results = detect_objects(image, model, score_thr=0.5, nms_thr=0.45)
             
-            # 원본 이미지 크기 정보 및 5% 허용 오차
+            # 불량/정상 판단 (전체를 둘러싼 박스 외에 추가 박스가 있으면 불량)
             h, w = image.shape[:2]
-            tol = 0.05  # 5% tolerance
+            tol = 0.05  # 5% 오차 허용
 
             def is_full_box(box):
                 x1, y1, x2, y2 = box
                 return (x1 <= tol * w and y1 <= tol * h and x2 >= (1 - tol) * w and y2 >= (1 - tol) * h)
             
-            # 검출 결과가 있을 경우에만 불량 여부 메시지 출력
             if detection_results:
                 other_boxes = [d for d in detection_results if not is_full_box(d["box"])]
                 if len(other_boxes) > 0:
                     st.markdown("**불량이 검출되었습니다! 🚨**")
                 else:
                     st.markdown("**불량이 검출되지 않았습니다! 🎉**")
-            
-            st.image(result_image, caption="탐지 결과", width=550)
+            else:
+                st.markdown("**탐지 결과가 없습니다!**")
+                
+            st.image(result_image, caption="🔍 탐지 결과", width=550)
             
             # 결과 이미지 다운로드 버튼 (JPG)
             result_bgr = cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR)
