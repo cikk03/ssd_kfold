@@ -183,7 +183,7 @@ def main(image=None):
             with st.spinner("모델 실행 중... ⏳"):
                 models = get_models()
                 result_image, detection_results = ensemble_predictions(image, models, iou_thr=0.6, score_thr=0.5, nms_thr=0.45)
-            st.image(result_image, caption="🔍 탐지 결과", width=450)
+            st.image(result_image, caption="🔍 탐지 결과", width=350)
             
             # 결과 이미지 다운로드 버튼 (JPG)
             img_rgb = cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR)
