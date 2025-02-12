@@ -176,7 +176,8 @@ def ensemble_predictions(image, models, iou_thr=0.6, score_thr=0.5, nms_thr=0.45
             text_top = y1
             text_bottom = y1 + text_height + baseline
         cv2.rectangle(original_image, (x1, text_top), (x1 + text_width, text_bottom), color, thickness=-1)
-        cv2.putText(original_image, text, (x1, text_bottom - baseline), font, font_scale, (255,255,255), thickness, cv2.LINE_AA)
+        # 라벨 텍스트를 검정색으로 출력
+        cv2.putText(original_image, text, (x1, text_bottom - baseline), font, font_scale, (0,0,0), thickness, cv2.LINE_AA)
         
         detection_results.append({
             "label": label_text,
