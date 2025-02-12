@@ -143,7 +143,7 @@ def ensemble_predictions(image, models, iou_thr=0.6, score_thr=0.5, nms_thr=0.45
         5: 'Side_stamp'
     }
     
-    detection_results = []  # JSON 형식의 결과 저장
+    detection_results = []
     for cluster in clusters:
         box = cluster['box']
         score = cluster['score']
@@ -168,7 +168,7 @@ def ensemble_predictions(image, models, iou_thr=0.6, score_thr=0.5, nms_thr=0.45
 ####################################
 def main(image=None):
     st.title("🔍 SSD Object Detection Ensemble")
-    st.write("💡 SSD300 VGG16 모델 앙상블을 사용한 객체 탐지")
+    # 기존 설명 문구 삭제 (💡 SSD300 VGG16 모델 앙상블을 사용한 객체 탐지)
     
     if image is None:
         uploaded_file = st.file_uploader("이미지를 업로드하세요", type=["png", "jpg", "jpeg"])
@@ -183,7 +183,13 @@ def main(image=None):
             with st.spinner("모델 실행 중... ⏳"):
                 models = get_models()
                 result_image, detection_results = ensemble_predictions(image, models, iou_thr=0.6, score_thr=0.5, nms_thr=0.45)
-            st.image(result_image, caption="🔍 탐지 결과", width=350)
+            # 탐지 결과에 따른 메시지 출력 (버튼 바로 아래)
+            if len(detection_results) > 0:
+                st.markdown("**불량이 검출되었습니다! 🚨**")
+            else:
+                st.markdown("**불량이 검출되지 않았습니다! 🎉**")
+                
+            st.image(result_image, caption="🔍 탐지 결과", width=550)
             
             # 결과 이미지 다운로드 버튼 (JPG)
             img_rgb = cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR)
