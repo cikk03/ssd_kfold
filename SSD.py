@@ -93,8 +93,8 @@ def detect_objects(image, model, score_thr=0.5, nms_thr=0.45):
 ####################################
 def main(image=None):
     st.title("🔍 SSD Object Detection")
-    st.write("💡 best_ssd_model.pth 가중치를 사용한 객체 탐지 앱")
-    
+    # 기존 설명 문구 삭제 (💡 best_ssd_model.pth 가중치를 사용한 객체 탐지 앱)
+
     if image is None:
         uploaded_file = st.file_uploader("이미지를 업로드하세요", type=["png", "jpg", "jpeg"])
         if uploaded_file is not None:
@@ -108,7 +108,13 @@ def main(image=None):
             with st.spinner("모델 실행 중..."):
                 model = get_model()
                 result_image, detection_results = detect_objects(image, model, score_thr=0.5, nms_thr=0.45)
-            st.image(result_image, caption="탐지 결과", width=450)
+            # 탐지 결과에 따른 메시지 출력 (버튼 바로 아래)
+            if len(detection_results) > 0:
+                st.markdown("**불량이 검출되었습니다! 🚨**")
+            else:
+                st.markdown("**불량이 검출되지 않았습니다! 🎉**")
+                
+            st.image(result_image, caption="탐지 결과", width=550)
             
             # 결과 이미지 다운로드 버튼 (JPG)
             result_bgr = cv2.cvtColor(result_image, cv2.COLOR_RGB2BGR)
